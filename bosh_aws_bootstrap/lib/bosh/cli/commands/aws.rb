@@ -19,7 +19,6 @@ module Bosh::Cli::Command
 
     usage "aws"
     desc "show bosh aws sub-commands"
-
     def help
       say "bosh aws sub-commands:\n"
       commands = Bosh::Cli::Config.commands.values.find_all { |command| command.usage =~ /^aws/ }
@@ -47,6 +46,21 @@ module Bosh::Cli::Command
       misc = Bosh::Cli::Command::Misc.new(runner)
       misc.options = self.options
       misc.login("admin", "admin")
+    end
+
+    def bootstrap_bosh(release_path)
+      target_required
+      vpc_receipt_filename = File.expand_path("aws_vpc_receipt.yml")
+      route53_receipt_filename = File.expand_path("aws_route53_receipt.yml")
+      FileUtils.rm_rf "deployments"
+      FileUtils.mkdir_p "deployments/bosh"
+      Dir.chdir("deployments/bosh") do
+        create_bosh_manifest(vpc_receipt_filename, route53_receipt_filename)
+      end
+
+      Dir.chdir(release_path) do
+        Bosh::Cli::Command::Release.new.create
+      end
     end
 
     usage "aws generate micro_bosh"

@@ -55,6 +55,126 @@ describe Bosh::Cli::Command::AWS do
         Bosh::Cli::Command::Misc.any_instance.should_receive(:login).with("admin", "admin")
         aws.bootstrap_micro
       end
+
+      describe "aws bootstrap bosh" do
+        let(:release_path) { File.join(Dir.pwd, 'release') }
+        let(:bosh_release_path) { File.expand_path(File.join(File.dirname(__FILE__), "..", "..",  "..", "release")) }
+
+        around do |example|
+          Dir.mktmpdir do |dirname|
+            Dir.chdir dirname do
+              FileUtils.cp(File.join(File.dirname(__FILE__), "..", "assets", "test-output.yml"), "aws_vpc_receipt.yml")
+              FileUtils.cp(File.join(File.dirname(__FILE__), "..", "assets", "test-aws_route53_receipt.yml"), "aws_route53_receipt.yml")
+              FileUtils.cp_r(bosh_release_path, ".")
+              File.write(File.join("release", 'config', 'blobs.yml'), {}.to_yaml)
+              example.run
+            end
+          end
+        end
+
+        before do
+          Bosh::Cli::Config.output = $stdout
+        end
+
+        context "when the target is not set to a microbosh" do
+          before do
+            aws.options[:target] = nil
+            aws.config.target= nil
+          end
+
+          it "raises an error" do
+            expect { aws.bootstrap_bosh(release_path) }.to raise_error(/Please choose target first/)
+          end
+        end
+
+        context "when there's no release parameter" do
+          before do
+            aws.options[:target] = 'http://localhost:25555'
+          end
+
+          it "complains about its presence" do
+            expect { aws.bootstrap_bosh('/') }.to raise_error(/Please point to a release folder/)
+          end
+        end
+
+        context "when the prerequisites are all met" do
+          before do
+            Bosh::Cli::PackageBuilder.any_instance.stub(:resolve_globs).and_return([])
+
+            aws.options[:target] = 'http://localhost:25555'
+            WebMock.disable_net_connect!
+
+            # Get director's info
+            stub_request(:get, "http://localhost:25555/info").
+                with(:headers => {'Content-Type'=>'application/json'}).
+                to_return(:status => 200, :body => '{"uuid": "1234"}')
+
+            stub_request(:get, %r{http://blob.cfblob.com/rest/objects}).
+                to_return(:status => 200)
+          end
+
+          it "cleans up old deployments"
+
+          it "generates an updated manifest for bosh" do
+            File.exist?("deployments/bosh/bosh.yml").should be_false
+            aws.bootstrap_bosh(release_path)
+            File.exist?("deployments/bosh/bosh.yml").should be_true
+          end
+
+          it "creates a new release" do
+            previous_release = Dir["release/releases"].sort[-1]
+
+            aws.bootstrap_bosh(release_path)
+
+            generated_release = Dir["release/releases"].sort[-1]
+            previous_release.should_not == generated_release
+          end
+
+          it "uploads the newly created release" do
+            #how?
+          end
+
+          it "uploads the latest stemcell" do
+            #how?
+          end
+
+          it "deploys bosh" do
+            #how?
+          end
+
+          it "sets the target to the new bosh" do
+            #how?
+          end
+        end
+
+        #it "should generate a microbosh.yml in the right location" do
+        #  File.exist?("deployments/micro/micro_bosh.yml").should == false
+        #  aws.bootstrap_micro
+        #  File.exist?("deployments/micro/micro_bosh.yml").should == true
+        #end
+        #
+        #it "should remove any existing deployment artifacts first" do
+        #  FileUtils.mkdir_p("deployments/micro")
+        #  File.open("deployments/leftover.yml", "w") { |f| f.write("old stuff!") }
+        #  File.open("deployments/micro/leftover.yml", "w") { |f| f.write("old stuff!") }
+        #  File.exist?("deployments/leftover.yml").should == true
+        #  File.exist?("deployments/micro/leftover.yml").should == true
+        #  aws.bootstrap_micro
+        #  File.exist?("deployments/leftover.yml").should == false
+        #  File.exist?("deployments/micro/leftover.yml").should == false
+        #end
+        #
+        #it "should deploy a micro bosh" do
+        #  Bosh::Cli::Command::Micro.any_instance.should_receive(:micro_deployment).with("micro")
+        #  Bosh::Cli::Command::Micro.any_instance.should_receive(:perform).with("ami-123456")
+        #  aws.bootstrap_micro
+        #end
+        #
+        #it "should login as admin:admin" do
+        #  Bosh::Cli::Command::Misc.any_instance.should_receive(:login).with("admin", "admin")
+        #  aws.bootstrap_micro
+        #end
+      end
     end
 
     describe "aws generate micro_bosh" do
