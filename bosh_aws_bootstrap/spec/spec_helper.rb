@@ -1,6 +1,7 @@
 require "cli"
 require "bosh/cli/commands/aws"
 require "bosh_aws_bootstrap"
+require 'webmock/rspec'
 
 def asset(filename)
   File.join(File.dirname(__FILE__), 'assets', filename)
@@ -17,6 +18,8 @@ RSpec.configure do |config|
   config.treat_symbols_as_metadata_keys_with_true_values = true
   config.run_all_when_everything_filtered = true
   config.filter_run :focus
+
+  #config.include WebMock::Rspec, functional: true
 
   config.order = 'random'
 end
