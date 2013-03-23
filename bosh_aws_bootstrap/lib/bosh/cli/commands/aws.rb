@@ -48,19 +48,70 @@ module Bosh::Cli::Command
       misc.login("admin", "admin")
     end
 
-    def bootstrap_bosh(release_path)
+    usage "aws bootstrap bosh"
+    desc "bootstrap full bosh deployment"
+    def bootstrap_bosh(release_path, stemcell_path, bosh_manifest_template)
       target_required
+
+      Dir.chdir(release_path) do
+        begin
+          check_if_release_dir
+        rescue => e
+          err("Please point to a valid release folder") if e.message =~ /doesn't look like release directory/
+        end
+      end
+
+      if !director.list_releases.empty?
+        err("This target already has a release.")
+      end
+
       vpc_receipt_filename = File.expand_path("aws_vpc_receipt.yml")
       route53_receipt_filename = File.expand_path("aws_route53_receipt.yml")
-      FileUtils.rm_rf "deployments"
+
+      vpc_config = load_yaml_file(vpc_receipt_filename)
+      route53_config = load_yaml_file(route53_receipt_filename)
+      bosh_manifest = Bosh::Aws::BoshManifest.new(vpc_config, route53_config, director.uuid)
+
+      existing_deployments = director.list_deployments.map { |deployment| deployment["name"] }
+
+      if existing_deployments.include? bosh_manifest.bosh_deployment_name
+        err(<<-MSG)
+Deployment `#{bosh_manifest.bosh_deployment_name}' already exists.
+This command should be used for bootstrapping bosh from scratch.
+        MSG
+      end
+
       FileUtils.mkdir_p "deployments/bosh"
       Dir.chdir("deployments/bosh") do
         create_bosh_manifest(vpc_receipt_filename, route53_receipt_filename)
+
+        deployment_command = Bosh::Cli::Command::Deployment.new
+        deployment_command.options = self.options
+        deployment_command.options[:non_interactive] = true
+        deployment_command.set_current("bosh.yml")
+
+        biff_command = Bosh::Cli::Command::Biff.new
+        biff_command.options = self.options
+        biff_command.options[:non_interactive] = true
+        biff_command.biff(bosh_manifest_template)
+      end
+
+      # Bosh root path
+      Dir.chdir(File.join(File.dirname(__FILE__), "..", "..", "..", "..")) do
+        Bosh::Exec.sh "bundle exec rake release:create_dev_release"
       end
 
       Dir.chdir(release_path) do
-        Bosh::Cli::Command::Release.new.create
+        release_command = Bosh::Cli::Command::Release.new
+        release_command.options = self.options
+        release_command.options[:non_interactive] = true
+
+        release_command.upload
       end
+
+      stemcell_command = Bosh::Cli::Command::Stemcell.new
+      stemcell_command.options = self.options
+      stemcell_command.upload(stemcell_path)
     end
 
     usage "aws generate micro_bosh"

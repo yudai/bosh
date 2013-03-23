@@ -61,6 +61,8 @@ module Bosh::Cli
 
     # @return [Hash] Director credentials
     def credentials_for(target)
+      p @config_file
+      p @config_file["auth"]
       if @config_file["auth"].is_a?(Hash) && @config_file["auth"][target]
         @config_file["auth"][target]
       else
