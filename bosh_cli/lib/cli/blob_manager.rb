@@ -332,7 +332,9 @@ module Bosh::Cli
       unless File.exists?(symlink_path) && !File.symlink?(symlink_path)
         FileUtils.mkdir_p(File.dirname(symlink_path))
         FileUtils.rm_rf(symlink_path)
-        FileUtils.ln_s(store_path, symlink_path)
+        relative_path = Pathname.new(store_path)
+          .relative_path_from(Pathname.new(File.dirname(symlink_path))).to_s
+        FileUtils.ln_s(relative_path, symlink_path)
       end
     end
 
