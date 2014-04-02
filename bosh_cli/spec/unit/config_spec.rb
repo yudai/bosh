@@ -77,11 +77,47 @@ describe Bosh::Cli::Config do
     cfg.deployment.should == nil
   end
 
+  it "returns the value when a deployment name is given" do
+    fake_deployments = {
+      "not_to_be_returned" => "fake0",
+      "to_be_returned" => "fake1"
+    }
+    add_config("deployment" => fake_deployments)
+
+    cfg = create_config
+    cfg.deployment("to_be_returned").should == 'fake1'
+  end
+
   it "should throw MissingTarget when getting deployment without target set" do
     add_config({})
     cfg = create_config
     expect { cfg.set_deployment("/path/to/deploy/1") }.
         to raise_error(Bosh::Cli::MissingTarget)
+  end
+
+  it "adds a new deployment entry to the config_file with the given name" do
+    add_config({})
+    cfg = create_config
+    cfg.set_deployment("/path/to/deploy/1", "new_entry")
+    cfg.save
+
+    yaml_file = load_yaml_file(@config, nil)
+    yaml_file["deployment"]["new_entry"] == "/path/to/deploy/1"
+  end
+
+  it "should remove the entry with the given name from the config file" do
+    fake_deployments = {
+      "to_be_deleted" => "fake0",
+      "not_to_be_deleted" => "fake1"
+    }
+    add_config("deployment" => fake_deployments)
+
+    cfg = create_config
+    cfg.remove_deployment("to_be_deleted")
+    cfg.save
+
+    yaml_file = load_yaml_file(@config, nil)
+    yaml_file["deployment"].should == { "not_to_be_deleted" => "fake1" }
   end
 
   it "whines on missing config file" do

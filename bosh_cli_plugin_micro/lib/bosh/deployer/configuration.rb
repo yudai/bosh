@@ -8,6 +8,8 @@ module Bosh::Deployer
 
     attr_reader :base_dir
 
+    UNDEFINED_ADDRESS = '0.0.0.0'
+
     # rubocop:disable MethodLength
     def configure(config)
       plugin = config['cloud']['plugin']
@@ -107,7 +109,7 @@ module Bosh::Deployer
     end
 
     def client_services_ip
-      net_conf['vip'] || net_conf['ip']
+      net_conf['vip'] || net_conf['ip'] || UNDEFINED_ADDRESS
     end
 
     def internal_services_ip

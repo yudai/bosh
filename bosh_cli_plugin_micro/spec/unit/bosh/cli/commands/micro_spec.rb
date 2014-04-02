@@ -270,6 +270,22 @@ module Bosh::Cli::Command
             end
           end
         end
+
+        context 'when the bosh target has the undefined IP address (0.0.0.0)' do
+          it 'updates the target URL with the actual IP address' do
+            expect(deployer).to receive(:client_services_ip).and_return('8')
+
+            allow(config).to receive(:target_name).and_return('https://0.0.0.0:25555')
+            expect(config).to receive(:remove_deployment).with('https://0.0.0.0:25555')
+            expect(config).to receive(:save).and_return do
+              expect(config).to receive(:target_name).and_return('https://8:25555')
+            end
+
+            micro_command.perform('stemcell')
+
+            expect(config.deployment('https://8:25555')).to eq('/tmp/foo/micro_bosh.yml')
+          end
+        end
       end
 
       context 'when microbosh is not successfully deployed' do

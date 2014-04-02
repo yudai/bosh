@@ -126,34 +126,49 @@ module Bosh::Cli
     end
 
     # Read the deployment configuration.  Return the deployment for the
-    # current target.
+    # current target or given name.
     #
-    # @return [String?] The deployment path for the current target.
-    def deployment
-      return nil if target.nil?
+    # @param [String?] name Deployment name.
+    #     Current target is used when not given.
+    # @return [String?] The deployment path.
+    def deployment(name = nil)
+      return nil if name.nil? && target.nil?
       if @config_file.has_key?("deployment")
         if is_old_deployment_config?
           set_deployment(@config_file["deployment"])
           save
         end
         if @config_file["deployment"].is_a?(Hash)
-          return @config_file["deployment"][target]
+          return @config_file["deployment"][name || target]
         end
       end
     end
 
-    # Sets the deployment file for the current target. If the deployment is
-    # the old deployment configuration, it will turn it into the format.
+    # Sets the deployment file for the current target or given name.
+    # If the deployment is the old deployment configuration,
+    # it will turn it into the format.
     #
-    # @raise [MissingTarget] If there is no target set.
+    # @raise [MissingTarget] If there is no target set or no name given.
     # @param [String] deployment_file_path The string path to the
     #     deployment file.
-    def set_deployment(deployment_file_path)
-      raise MissingTarget, "Must have a target set" if target.nil?
+    # @param [String?] name Deployment name.
+    #     Current target is used when not given.
+    def set_deployment(deployment_file_path, name = nil)
+      raise MissingTarget, "Must have a target set" if name.nil? && target.nil?
       @config_file["deployment"] = {} if is_old_deployment_config?
       @config_file["deployment"] ||= {}
-      @config_file["deployment"][target] = deployment_file_path
+      @config_file["deployment"][name || target] = deployment_file_path
     end
+
+    # Removes an entry from the configuration.
+    #
+    # @param [String] name The string name of the entry to be removed.
+    def remove_deployment(name)
+      if @config_file["deployment"].is_a?(Hash)
+        @config_file["deployment"].delete(name)
+      end
+    end
+
 
     [:target, :target_name, :target_version, :release,
      :target_uuid, :status_timeout].each do |attr|

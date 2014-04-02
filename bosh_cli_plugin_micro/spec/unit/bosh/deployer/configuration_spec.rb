@@ -118,21 +118,31 @@ module Bosh::Deployer
           configuration_hash.merge!(
             'network' => {
               'type' => 'manual',
+              'vip' => 'fake-vip-ip',
               'ip' => 'fake-bosh-ip'
             }
           )
         end
 
         context 'when vip exists' do
-          before do
-            configuration_hash['network']['vip'] = 'fake-vip-ip'
-          end
-
           its(:client_services_ip) { should eq('fake-vip-ip') }
         end
 
         context 'when vip does not exist' do
+          before do
+            configuration_hash['network'].delete('vip')
+          end
+
           its(:client_services_ip) { should eq('fake-bosh-ip') }
+        end
+
+        context 'when vip or ip do not exist' do
+          before do
+            configuration_hash['network'].delete('vip')
+            configuration_hash['network'].delete('ip')
+          end
+
+          its(:client_services_ip) { should eq('0.0.0.0') }
         end
 
         context 'when deployment network exists' do

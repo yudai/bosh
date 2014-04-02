@@ -183,7 +183,13 @@ module Bosh::Cli::Command
 
       duration = renderer.duration || (Time.now - start_time)
 
-      update_target
+      if URI.parse(target_name).host == Bosh::Deployer::Configuration::UNDEFINED_ADDRESS
+        update_deployment_with_actual_address
+        say "Your target has been changed to `#{target.make_yellow}'!"
+        desc = "`#{rel_path.make_green}' to `#{target_name.make_green}'"
+      end
+
+     update_target
 
       say("Deployed #{desc}, took #{format_time(duration).make_green} to complete")
     end
@@ -347,10 +353,14 @@ AGENT_HELP
     # set new target and clear out cached values
     # does not persist the new values (set_current() does this)
     def set_target(ip)
-      config.target = "https://#{ip}:#{MICRO_DIRECTOR_PORT}"
+      config.target = target_url_from_ip(ip)
       config.target_name = nil
       config.target_version = nil
       config.target_uuid = nil
+    end
+
+    def target_url_from_ip(ip)
+      "https://#{ip}:#{MICRO_DIRECTOR_PORT}"
     end
 
     # rubocop:disable MethodLength
@@ -381,6 +391,17 @@ AGENT_HELP
       config.save
     end
     # rubocop:enable MethodLength
+
+    def update_deployment_with_actual_address
+      current_target = target_name
+      manifest_file = config.deployment(current_target)
+      actual_address =  deployer.client_services_ip
+
+      config.remove_deployment(current_target)
+      config.set_deployment(manifest_file, target_url_from_ip(actual_address))
+      config.save
+      set_target(actual_address)
+    end
 
     def confirm_deployment(msg)
       unless confirmed?(msg)
